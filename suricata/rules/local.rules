@@ -1,0 +1,23 @@
+# =============================================================================
+# Suricata NIDS - Firmas de Detección Perimetral y de Red (local.rules)
+# Autor: Mario de Jesús Álvarez Ramos
+# Mapeo: MITRE ATT&CK T1046 (Network Service Discovery), T1190, T1595
+# =============================================================================
+
+# 1. Detección de escaneo sigiloso SYN Stealth Scan (Nmap -sS)
+alert tcp any any -> $HOME_NET any (msg:"SOC-SURICATA [T1046] Nmap SYN Stealth Port Scan detectado"; flags:S,12; threshold:type both, track by_src, count 20, seconds 5; classtype:attempted-recon; sid:1000001; rev:1;)
+
+# 2. Detección de sondeo de versiones de servicio mediante Nmap Version Detection (-sV)
+alert tcp any any -> $HOME_NET any (msg:"SOC-SURICATA [T1046] Intento de Fingerprinting / Detección de versión de servicios"; content:"Nmap"; nocase; classtype:attempted-recon; sid:1000002; rev:1;)
+
+# 3. Detección de escáner web automatizado Nikto
+alert http any any -> $HOME_NET any (msg:"SOC-SURICATA [T1595.002] Escáner de Vulnerabilidades Web Nikto en ejecución"; http_user_agent; content:"Nikto"; nocase; classtype:web-application-attack; sid:1000003; rev:1;)
+
+# 4. Detección de herramienta de inyección SQL automatizada (Sqlmap)
+alert http any any -> $HOME_NET any (msg:"SOC-SURICATA [T1190] Sqlmap Automated Injection Framework detectado"; http_user_agent; content:"sqlmap"; nocase; classtype:web-application-attack; sid:1000004; rev:1;)
+
+# 5. Detección de Fuzzing de Directorios Web (Dirb / Gobuster / Feroxbuster)
+alert http any any -> $HOME_NET any (msg:"SOC-SURICATA [T1083] Fuzzing masivo de rutas HTTP (Dirb/Gobuster)"; http_user_agent; content:"dirb"; nocase; threshold:type both, track by_src, count 30, seconds 10; classtype:web-application-activity; sid:1000005; rev:1;)
+
+# 6. Alerta ante intento de escape de ruta vía HTTP GET (Directory Traversal)
+alert http any any -> $HOME_NET any (msg:"SOC-SURICATA [T1190] Patrón Directory Traversal /etc/passwd en URI"; http_uri; content:"/etc/passwd"; classtype:web-application-attack; sid:1000006; rev:1;)

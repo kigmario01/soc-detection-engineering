@@ -1,0 +1,138 @@
+<!--
+  =============================================================================
+  Wazuh SIEM/XDR - Custom Detection Ruleset (local_rules.xml)
+  Autor: Mario de Jesús Álvarez Ramos
+  Entorno: Ubuntu 26.04 LTS (Docker Architecture & Agent Endpoints)
+  Mapeo: MITRE ATT&CK Framework
+  =============================================================================
+-->
+
+<group name="custom_soc_detections,">
+
+  <!-- =========================================================================
+       GRUPO 1: DETECCIÓN DE FUERZA BRUTA & AUTENTICACIÓN
+       MITRE ATT&CK: T1110 (Brute Force), T1110.001 (Password Guessing)
+       ========================================================================= -->
+
+  <!-- Correlación de múltiples fallos de autenticación SSH -->
+  <rule id="100010" level="10" frequency="6" timeframe="120">
+    <if_matched_sid>5710</if_matched_sid>
+    <description>SOC-ALERT [T1110.001]: Múltiples intentos de inicio de sesión SSH fallidos desde la misma IP en 2 minutos (Posible ataque Hydra/Medusa).</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1110.001</id>
+    </mitre>
+    <group>authentication_failed,pci_dss_10.2.4,pci_dss_10.2.5,gdpr_IV_35.7.d,</group>
+  </rule>
+
+  <!-- Detección de login exitoso tras ráfaga de fallos (Compromiso de credenciales) -->
+  <rule id="100011" level="13">
+    <if_matched_sid>5715</if_matched_sid>
+    <if_sid>100010</if_sid>
+    <description>SOC-CRITICAL [T1078]: Login SSH exitoso inmediatamente después de una ráfaga de autenticación fallida. Posible compromiso de cuenta por fuerza bruta.</description>
+    <mitre>
+      <id>T1078</id>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_success,account_compromise,</group>
+  </rule>
+
+
+  <!-- =========================================================================
+       GRUPO 2: ATAQUES A APLICACIONES WEB & SERVICIOS REVERSOS
+       MITRE ATT&CK: T1190 (Exploit Public-Facing Application)
+       ========================================================================= -->
+
+  <!-- Inyección SQL (SQLi) -->
+  <rule id="100020" level="12">
+    <if_sid>31101,31108</if_sid>
+    <regex type="pcre2">(?i)(union(\s+all)?\s+select|select\s+.*\s+from|insert\s+into|waitfor\s+delay|sleep\(\d+\)|or\s+['"\d]+=['"\d]+)</regex>
+    <description>SOC-ALERT [T1190]: Patrón de Inyección SQL (SQLi) detectado en parámetros HTTP URI o payload.</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>attack,sql_injection,owasp_a03,</group>
+  </rule>
+
+  <!-- Escalamiento de Directorio (Path Traversal / LFI) -->
+  <rule id="100021" level="11">
+    <if_sid>31101,31108</if_sid>
+    <regex type="pcre2">(?i)(\.\./|\.\.\\|/etc/passwd|/etc/shadow|/proc/self|boot\.ini|win\.ini)</regex>
+    <description>SOC-ALERT [T1190]: Intento de Directory Traversal / Lectura de archivos del sistema (/etc/passwd o traversal relativo).</description>
+    <mitre>
+      <id>T1190</id>
+      <id>T1083</id>
+    </mitre>
+    <group>attack,path_traversal,owasp_a01,</group>
+  </rule>
+
+  <!-- Cross-Site Scripting (XSS) Reflejado / Persistente -->
+  <rule id="100022" level="10">
+    <if_sid>31101,31108</if_sid>
+    <regex type="pcre2">(?i)(&lt;script|javascript:|onerror\s*=|onload\s*=|eval\(|alert\(|document\.cookie)</regex>
+    <description>SOC-ALERT [T1190]: Vector de Cross-Site Scripting (XSS) detectado en solicitud entrante.</description>
+    <mitre>
+      <id>T1190</id>
+    </mitre>
+    <group>attack,xss,owasp_a03,</group>
+  </rule>
+
+  <!-- Fuzzing automatizado y escáneres de vulnerabilidades conocidos -->
+  <rule id="100023" level="9">
+    <if_sid>31101,31108</if_sid>
+    <regex type="pcre2">(?i)(nikto|sqlmap|dirbuster|gobuster|wpscan|masscan|zgrab|nmap)</regex>
+    <description>SOC-WARNING [T1595.002]: User-Agent asociado a escáner de vulnerabilidades o herramienta de reconocimiento activo detectado.</description>
+    <mitre>
+      <id>T1595</id>
+      <id>T1595.002</id>
+    </mitre>
+    <group>reconnaissance,scanner_detected,</group>
+  </rule>
+
+
+  <!-- =========================================================================
+       GRUPO 3: MONITOREO DE INTEGRIDAD DE ARCHIVOS (FIM - SYSCHECK)
+       MITRE ATT&CK: T1070.004 (File Deletion), T1565.001 (Data Manipulation)
+       ========================================================================= -->
+
+  <!-- Modificación no autorizada en binarios críticos del sistema -->
+  <rule id="100030" level="12">
+    <if_sid>550</if_sid>
+    <match>/bin/|/sbin/|/usr/bin/|/usr/sbin/</match>
+    <description>SOC-CRITICAL [T1565.001]: Modificación de integridad detectada en binario crítico del sistema operativo.</description>
+    <mitre>
+      <id>T1565.001</id>
+    </mitre>
+    <group>syscheck,file_modified,critical_system,</group>
+  </rule>
+
+  <!-- Creación de scripts ejecutables en directorios temporales o web -->
+  <rule id="100031" level="11">
+    <if_sid>554</if_sid>
+    <regex type="pcre2">(?i)(\.sh|\.py|\.php|\.pl|\.elf)$</regex>
+    <match>/tmp/|/var/tmp/|/dev/shm/</match>
+    <description>SOC-ALERT [T1059]: Archivo ejecutable o script sospechoso depositado en directorio volátil (/tmp o /dev/shm).</description>
+    <mitre>
+      <id>T1059</id>
+      <id>T1105</id>
+    </mitre>
+    <group>syscheck,file_added,suspicious_file,</group>
+  </rule>
+
+
+  <!-- =========================================================================
+       GRUPO 4: CORRELACIÓN CON SURICATA NIDS & DETECCIÓN DE RED
+       MITRE ATT&CK: T1046 (Network Service Discovery)
+       ========================================================================= -->
+
+  <!-- Ráfaga de alertas NIDS desde la misma IP (Escaneo sigiloso o DoS) -->
+  <rule id="100040" level="12" frequency="15" timeframe="60">
+    <if_group>suricata</if_group>
+    <description>SOC-ALERT [T1046]: Ráfaga de eventos Suricata NIDS (más de 15 eventos en 60 segundos). Posible escaneo de puertos Nmap o intrusión perimetral en curso.</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>suricata,network_scan,ids,</group>
+  </rule>
+
+</group>
