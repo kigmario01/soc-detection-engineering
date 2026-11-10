@@ -99,5 +99,6 @@ sudo systemctl restart suricata
 
 - **Ingeniero:** Mario de Jesús Álvarez Ramos
 - **Especialidad:** Administración de Redes, Infraestructura TI & Operaciones SOC (Wazuh SIEM / Suricata NIDS)
+- **GitHub:** [github.com/kigmario01](https://github.com/kigmario01)
 - **LinkedIn:** [linkedin.com/in/mario-de-jesús-álvarez-ramos-32b828289](https://www.linkedin.com/in/mario-de-jesús-álvarez-ramos-32b828289)
 - **Portal & Centro de Comando:** [https://malvarezserv.tail19bc30.ts.net/portal/](https://malvarezserv.tail19bc30.ts.net/portal/)
